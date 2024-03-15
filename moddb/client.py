@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any, List, Tuple, Union
 
 import requests
 from bs4 import BeautifulSoup
-from pyrate_limiter import Duration, Limiter, RequestRate
+from pyrate_limiter import Duration, Limiter, Rate as RequestRate
 
 from .base import parse_page
 from .boxes import ResultList, Thumbnail, _parse_results
@@ -37,7 +37,7 @@ if TYPE_CHECKING:
     from .enums import WatchType
     from .pages import Engine, Game, Group, Mod, Review, Team
 
-COMMENT_LIMITER = Limiter(RequestRate(1, Duration.MINUTE))
+COMMENT_LIMITER = Limiter(RequestRate(1, Duration.MINUTE), raise_when_fail=False)
 
 
 class Message:
@@ -312,7 +312,7 @@ class Client:
         sys.modules["moddb"].SESSION = self._fake_session
         delattr(self, "_fake_session")
 
-    @limiter.ratelimit("moddb", delay=True)
+    @limiter.as_decorator()(lambda *args, **kwargs: ("moddb", 1))
     def _request(self, method, url, **kwargs):
         """Making sure we do our request with the cookies from this client rather than the cookies
         of the library."""
@@ -710,7 +710,7 @@ class Client:
             The page's updated object containing the new comment and any other new data that
             has been posted since then
         """
-        COMMENT_LIMITER.try_acquire(self.member.name_id, delay=True)
+        COMMENT_LIMITER.try_acquire(self.member.name_id)
         r = self._request(
             "POST",
             page.url,

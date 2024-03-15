@@ -11,7 +11,7 @@ from urllib.parse import urljoin
 import bs4
 import requests
 from bs4 import BeautifulSoup, Tag
-from pyrate_limiter import Duration, Limiter, RequestRate
+from pyrate_limiter import Duration, Limiter, Rate as RequestRate
 
 from .enums import MediaCategory, ThumbnailType
 from .errors import AwaitingAuthorisation, ModdbException
@@ -19,12 +19,12 @@ from .errors import AwaitingAuthorisation, ModdbException
 LOGGER = logging.getLogger("moddb")
 BASE_URL = "https://www.moddb.com"
 
-limiter = Limiter(
+limiter = Limiter([
     # request stuff slowly, like a human
     RequestRate(1, Duration.SECOND * 1),
     # take breaks when requesting stuff, like a human
     RequestRate(40, Duration.MINUTE * 5),
-)
+], raise_when_fail=False)
 
 time_mapping = {
     "year": 125798400,
@@ -196,7 +196,7 @@ def generate_login_cookies(username, password):
     return login.cookies
 
 
-@limiter.ratelimit("moddb", delay=True)
+@limiter.as_decorator()(lambda *args, **kwargs: ("moddb", 1))
 def request(req: requests.Request):
     """Helper function to make get/post requests with the current SESSION object.
 
